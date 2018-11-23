@@ -85,7 +85,7 @@ BOOL __shouldExitOnCheckResultFail = YES;
         channelsPerBuffer = 1;
     }
 
-    AudioBufferList *audioBufferList = (AudioBufferList *)malloc(sizeof(AudioBufferList) + sizeof(AudioBuffer) * (channels-1));
+    AudioBufferList *audioBufferList = (AudioBufferList *)malloc(sizeof(AudioBufferList) + sizeof(AudioBuffer) * (nBuffers-1));
     audioBufferList->mNumberBuffers = nBuffers;
     for(unsigned i = 0; i < nBuffers; i++)
     {
