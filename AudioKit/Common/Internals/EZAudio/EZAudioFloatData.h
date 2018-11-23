@@ -37,6 +37,18 @@
                                  buffers:(float **)buffers
                               bufferSize:(UInt32)bufferSize;
 
++ (instancetype)dataWithNumberOfChannels:(int)numberOfChannels
+                                 buffers:(float **)buffers
+                              bufferSize:(UInt32)bufferSize
+                                    copy:(BOOL)copy
+                            freeWhenDone:(BOOL)freeWhenDone;
+
+- (instancetype)initWithNumberOfChannels:(int)numberOfChannels
+                           buffers:(float **)buffers
+                              bufferSize:(UInt32)bufferSize
+                                    copy:(BOOL)copy
+                            freeWhenDone:(BOOL)freeWhenDone;
+
 //------------------------------------------------------------------------------
 
 @property (nonatomic, assign, readonly) int numberOfChannels;

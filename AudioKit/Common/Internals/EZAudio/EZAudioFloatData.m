@@ -34,6 +34,7 @@
 @property (nonatomic, assign, readwrite) int    numberOfChannels;
 @property (nonatomic, assign, readwrite) float  **buffers;
 @property (nonatomic, assign, readwrite) UInt32 bufferSize;
+@property (nonatomic, assign, readwrite) BOOL freeWhenDone;
 @end
 
 //------------------------------------------------------------------------------
@@ -44,8 +45,10 @@
 
 - (void)dealloc
 {
-    [EZAudioUtilities freeFloatBuffers:self.buffers
-                      numberOfChannels:self.numberOfChannels];
+    if (self.freeWhenDone) {
+        [EZAudioUtilities freeFloatBuffers:self.buffers
+                          numberOfChannels:self.numberOfChannels];
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -54,18 +57,52 @@
                                  buffers:(float **)buffers
                               bufferSize:(UInt32)bufferSize
 {
-    id data = [[self alloc] init];
-    size_t size = sizeof(float) * bufferSize;
-    float **buffersCopy = [EZAudioUtilities floatBuffersWithNumberOfFrames:bufferSize
-                                                          numberOfChannels:numberOfChannels];
-    for (int i = 0; i < numberOfChannels; i++)
+    return [self dataWithNumberOfChannels:numberOfChannels
+                                  buffers:buffers
+                               bufferSize:bufferSize
+                                     copy:YES
+                             freeWhenDone:YES];
+}
+
++ (instancetype)dataWithNumberOfChannels:(int)numberOfChannels
+                                 buffers:(float **)buffers
+                              bufferSize:(UInt32)bufferSize
+                                    copy:(BOOL)copy
+                            freeWhenDone:(BOOL)freeWhenDone
+{
+    return [[self alloc] initWithNumberOfChannels:numberOfChannels
+                                          buffers:buffers
+                                       bufferSize:bufferSize
+                                             copy:copy
+                                     freeWhenDone:freeWhenDone];
+}
+
+- (instancetype)initWithNumberOfChannels:(int)numberOfChannels
+                                 buffers:(float **)buffers
+                              bufferSize:(UInt32)bufferSize
+                                    copy:(BOOL)copy
+                            freeWhenDone:(BOOL)freeWhenDone;
+{
+    if (self = [super init])
     {
-        memcpy(buffersCopy[i], buffers[i], size);
+        float **buffersCopy = buffers;
+        if (copy)
+        {
+            size_t size = sizeof(float) * bufferSize;
+            buffersCopy = [EZAudioUtilities floatBuffersWithNumberOfFrames:bufferSize
+                                                          numberOfChannels:numberOfChannels];
+            for (int i = 0; i < numberOfChannels; i++)
+            {
+                memcpy(buffersCopy[i], buffers[i], size);
+            }
+        }
+
+        self.numberOfChannels = numberOfChannels;
+        self.buffers = buffersCopy;
+        self.bufferSize = bufferSize;
+        self.freeWhenDone = freeWhenDone;
     }
-    ((EZAudioFloatData *)data).buffers = buffersCopy;
-    ((EZAudioFloatData *)data).bufferSize = bufferSize;
-    ((EZAudioFloatData *)data).numberOfChannels = numberOfChannels;
-    return data;
+    return self;
 }
 
 //------------------------------------------------------------------------------
