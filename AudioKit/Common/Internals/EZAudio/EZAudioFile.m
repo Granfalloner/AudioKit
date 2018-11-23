@@ -420,11 +420,9 @@ typedef struct
             pthread_mutex_unlock(&_lock);
             return nil;
         }
-        float **data = (float **)malloc( sizeof(float *) * channels );
-        for (int i = 0; i < channels; i++)
-        {
-            data[i] = (float *)malloc( sizeof(float) * numberOfPoints );
-        }
+
+        float **data = [EZAudioUtilities floatBuffersWithNumberOfFrames:numberOfPoints
+                                                       numberOfChannels:channels];
 
         // seek to 0
         [EZAudioUtilities checkResult:ExtAudioFileSeek(self.info->extAudioFileRef,
@@ -485,14 +483,9 @@ typedef struct
 
         waveformData = [EZAudioFloatData dataWithNumberOfChannels:channels
                                                           buffers:(float **)data
-                                                       bufferSize:numberOfPoints];
-
-        // cleanup
-        for (int i = 0; i < channels; i++)
-        {
-            free(data[i]);
-        }
-        free(data);
+                                                       bufferSize:numberOfPoints
+                                                             copy:NO
+                                                     freeWhenDone:YES];
     }
     return waveformData;
 }
