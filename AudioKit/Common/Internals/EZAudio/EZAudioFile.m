@@ -430,22 +430,44 @@ typedef struct
                             operation:"Failed to seek frame position within audio file"];
 
         // calculate the required number of frames per buffer
-        SInt64 framesPerBuffer = ((SInt64) self.totalClientFrames / numberOfPoints);
+        double exactFramesPerBuffer = (double)self.totalClientFrames / numberOfPoints;
+        SInt64 framesPerBuffer = ceil(exactFramesPerBuffer);
         SInt64 framesPerChannel = framesPerBuffer / channels;
 
         // allocate an audio buffer list
         AudioBufferList *audioBufferList = [EZAudioUtilities audioBufferListWithNumberOfFrames:(UInt32)framesPerBuffer
                                                                               numberOfChannels:self.info->clientFormat.mChannelsPerFrame
                                                                                    interleaved:interleaved];
+        // This buffers will accomodate rounding errors for each channel
+        TPCircularBuffer circularBuffers[channels];
+        SInt64 totalRoundingError = fabs(framesPerBuffer - exactFramesPerBuffer) * numberOfPoints + 10;
+        SInt64 circularBufferSize = sizeof(float) * (framesPerBuffer + totalRoundingError);
+
+        for (int i = 0; i < channels; ++i)
+        {
+            [EZAudioUtilities circularBuffer:&circularBuffers[i] withSize:(int)circularBufferSize];
+            TPCircularBufferSetAtomic(&circularBuffers[i], false);
+        }
 
         // read through file and calculate rms at each point
+        SInt64 totalFramesRead = 0;
         for (SInt64 i = 0; i < numberOfPoints; i++)
         {
-            UInt32 bufferSize = (UInt32) framesPerBuffer;
-            [EZAudioUtilities checkResult:ExtAudioFileRead(self.info->extAudioFileRef,
-                                                           &bufferSize,
-                                                           audioBufferList)
-                                operation:"Failed to read audio data from file waveform"];
+            UInt32 bufferSize = 0;
+            if (totalFramesRead < [self totalFrames])
+            {
+                bufferSize = (UInt32)framesPerBuffer;
+                [EZAudioUtilities checkResult:ExtAudioFileRead(self.info->extAudioFileRef,
+                                                               &bufferSize,
+                                                               audioBufferList)
+                                    operation:"Failed to read audio data from file waveform"];
+                totalFramesRead += bufferSize;
+            }
+
+            int pointStartFrame = i * exactFramesPerBuffer + 0.5;
+            int pointEndFrame = (i + 1) * exactFramesPerBuffer + 0.5;
+            int pointFramesCount = pointEndFrame - pointStartFrame; // This will vary due to rounding errors
+
             if (interleaved)
             {
                 float *buffer = (float *)audioBufferList->mBuffers[0].mData;
@@ -456,7 +478,14 @@ typedef struct
                     {
                         channelData[frame] = buffer[frame * channels + channel];
                     }
-                    float rms = [EZAudioUtilities RMS:channelData length:(UInt32)framesPerChannel];
+                    TPCircularBufferProduceBytes(&circularBuffers[channel], channelData, (int32_t)framesPerChannel * sizeof(float));
+
+                    int32_t availableBytes = 0;
+                    float *circularBufferData = TPCircularBufferTail(&circularBuffers[channel], &availableBytes);
+                    int32_t bytesToProcess = (int32_t)MIN(availableBytes, pointFramesCount * sizeof(float));
+                    float rms = [EZAudioUtilities RMS:circularBufferData length:bytesToProcess / sizeof(float)];
+                    
+                    TPCircularBufferConsume(&circularBuffers[channel], bytesToProcess);
                     data[channel][i] = rms;
                 }
             }
@@ -465,7 +494,14 @@ typedef struct
                 for (int channel = 0; channel < channels; channel++)
                 {
                     float *channelData = audioBufferList->mBuffers[channel].mData;
-                    float rms = [EZAudioUtilities RMS:channelData length:bufferSize];
+                    TPCircularBufferProduceBytes(&circularBuffers[channel], channelData, bufferSize * sizeof(float));
+
+                    int32_t availableBytes = 0;
+                    float *circularBufferData = TPCircularBufferTail(&circularBuffers[channel], &availableBytes);
+                    int32_t bytesToProcess = (int32_t)MIN(availableBytes, pointFramesCount * sizeof(float));
+                    float rms = [EZAudioUtilities RMS:circularBufferData length:bytesToProcess / sizeof(float)];
+
+                    TPCircularBufferConsume(&circularBuffers[channel], bytesToProcess);
                     data[channel][i] = rms;
                 }
             }
@@ -473,6 +509,10 @@ typedef struct
 
         // clean up
         [EZAudioUtilities freeBufferList:audioBufferList];
+        for (int i = 0; i < channels; ++i)
+        {
+            [EZAudioUtilities freeCircularBuffer:&circularBuffers[i]];
+        }
 
         // seek back to previous position
         [EZAudioUtilities checkResult:ExtAudioFileSeek(self.info->extAudioFileRef,
