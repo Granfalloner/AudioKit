@@ -39,8 +39,15 @@
  A block used when returning back the waveform data. The waveform data itself will be an array of float arrays, one for each channel, and the length indicates the total length of each float array.
  @param waveformData An array of float arrays, each representing a channel of audio data from the file
  @param length       An int representing the length of each channel of float audio data
+ @deprecated This type is deprecated
  */
-typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int length);
+typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int length) __attribute__((deprecated));
+
+/**
+ A block used when returning back the waveform data. The waveform data itself holds an array of float arrays, one for each channel, and the length indicates the total length of each float array.
+ @param waveformData Holds array of float arrays, each representing a channel of audio data from the file
+ */
+typedef void (^EZAudioWaveformDataFetchCompletionBlock)(EZAudioFloatData *waveformData);
 
 //------------------------------------------------------------------------------
 #pragma mark - EZAudioFileDelegate
@@ -374,11 +381,27 @@ typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int len
 
 /**
  Asynchronously pulls the waveform amplitude data into a float array for the receiver. This returns a waveform with a default resolution of 1024, meaning there are 1024 data points to plot the waveform.
- @param completion A EZAudioWaveformDataCompletionBlock that executes when the waveform data has been extracted. Provides a `EZAudioFloatData` instance containing the waveform data for all audio channels.
+ @param completion A EZAudioWaveformDataCompletionBlock that executes when the waveform data has been extracted. Provides `(float **waveformData, int length)` parameters containing the waveform data for all audio channels.
+ @deprecated This method is deprecated
  */
-- (void)getWaveformDataWithCompletionBlock:(EZAudioWaveformDataCompletionBlock)completion;
+- (void)getWaveformDataWithCompletionBlock:(EZAudioWaveformDataCompletionBlock)completion __attribute__((deprecated));
+
+/**
+ Asynchronously pulls the waveform amplitude data into a float array for the receiver. This returns a waveform with a default resolution of 1024, meaning there are 1024 data points to plot the waveform.
+ @param completion A EZAudioWaveformDataFetchCompletionBlock that executes when the waveform data has been extracted. Provides a `EZAudioFloatData` instance containing the waveform data for all audio channels.
+ */
+- (void)getWaveformDataWithFetchCompletionBlock:(EZAudioWaveformDataFetchCompletionBlock)completion;
 
 //------------------------------------------------------------------------------
+
+/**
+ Asynchronously pulls the waveform amplitude data into a float array for the receiver.
+ @param numberOfPoints A UInt32 representing the number of data points you need. The higher the number of points the more detailed the waveform will be.
+ @param completion A EZAudioWaveformDataCompletionBlock that executes when the waveform data has been extracted. Provides `(float **waveformData, int length)` parameters containing the waveform data for all audio channels.
+ @deprecated This method is deprecated
+ */
+- (void)getWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
+                               completion:(EZAudioWaveformDataCompletionBlock)completion __attribute__((deprecated));
 
 /**
  Asynchronously pulls the waveform amplitude data into a float array for the receiver.
@@ -386,7 +409,7 @@ typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int len
  @param completion A EZAudioWaveformDataCompletionBlock that executes when the waveform data has been extracted. Provides a `EZAudioFloatData` instance containing the waveform data for all audio channels.
  */
 - (void)getWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
-                               completion:(EZAudioWaveformDataCompletionBlock)completion;
+                          fetchCompletion:(EZAudioWaveformDataFetchCompletionBlock)completion;
 
 //------------------------------------------------------------------------------
 

@@ -538,22 +538,36 @@ typedef struct
                                  completion:waveformDataCompletionBlock];
 }
 
+- (void)getWaveformDataWithFetchCompletionBlock:(EZAudioWaveformDataFetchCompletionBlock)waveformDataCompletionBlock
+{
+    [self getWaveformDataWithNumberOfPoints:EZAudioFileWaveformDefaultResolution
+                            fetchCompletion:waveformDataCompletionBlock];
+}
+
 //------------------------------------------------------------------------------
 
 - (void)getWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
                                completion:(EZAudioWaveformDataCompletionBlock)completion
+{
+    [self getWaveformDataWithNumberOfPoints:numberOfPoints
+                            fetchCompletion:^(EZAudioFloatData *waveformData) {
+                                completion(waveformData.buffers, waveformData.bufferSize);
+                            }];
+}
+
+- (void)getWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
+                          fetchCompletion:(EZAudioWaveformDataFetchCompletionBlock)completion
 {
     if (!completion)
     {
         return;
     }
 
-    // async get waveform data
     __weak EZAudioFile *weakSelf = self;
     dispatch_async(self.waveformQueue, ^{
         EZAudioFloatData *waveformData = [weakSelf getWaveformDataWithNumberOfPoints:numberOfPoints];
         dispatch_async(dispatch_get_main_queue(), ^{
-            completion(waveformData.buffers, waveformData.bufferSize);
+            completion(waveformData);
         });
     });
 }
